@@ -79,7 +79,7 @@ OFFERTE = {
     ],
 }
 
-# Aggiungiamo le offerte speciali (mancava questa parte)
+# Offerte speciali
 OFFERTE_SPECIALI = [
     {
         "nome": "Echo Dot (Ultimo modello)Altoparlante intelligente Wi-Fi e Bluetooth, suono più potente e dinamico, con Alexa | Antracite",
