@@ -1,7 +1,16 @@
 import logging
 import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, MessageHandler, CallbackQueryHandler, CallbackContext, Filters
+from telegram.ext import (
+    Updater,
+    MessageHandler,
+    CallbackQueryHandler,
+    CallbackContext,
+    filters,
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes
+)
 from config import TOKEN
 
 # Configurazione del logging
@@ -95,33 +104,33 @@ OFFERTE_SPECIALI = [
     }
 ]
 
-def invia_messaggio_benvenuto(update: Update, context: CallbackContext):
+async def invia_messaggio_benvenuto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestisce il messaggio di benvenuto"""
     tastiera = [[InlineKeyboardButton("🚀 Avvia Bot", callback_data="avvia_bot")]]
-    update.message.reply_text(
+    await update.message.reply_text(
         "🛍️ *Benvenuto in Gadget Finder Bot!* 🛍️\nScopri le migliori offerte Amazon!",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
 
-def gestisci_avvio_bot(update: Update, context: CallbackContext):
+async def gestisci_avvio_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gestisce l'avvio del bot"""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     tastiera = [
         [InlineKeyboardButton("📦 Offerte Speciali", callback_data="offerte_speciali")],
         [InlineKeyboardButton("🛍️ Categorie Prodotti", callback_data="scegli_categoria")]
     ]
-    query.edit_message_text(
+    await query.edit_message_text(
         "🔍 *Cosa vuoi fare?*",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
 
-def mostra_menu_categorie(update: Update, context: CallbackContext):
+async def mostra_menu_categorie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Mostra il menu delle categorie"""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     tastiera = [
         [InlineKeyboardButton("📱 Elettronica", callback_data="elettronica")],
         [InlineKeyboardButton("💻 Informatica", callback_data="informatica")],
@@ -129,75 +138,75 @@ def mostra_menu_categorie(update: Update, context: CallbackContext):
         [InlineKeyboardButton("🎮 Giochi", callback_data="giochi")],
         [InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]
     ]
-    query.edit_message_text(
+    await query.edit_message_text(
         "🛒 *Seleziona una categoria:*",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
 
-def mostra_offerte_categoria(update: Update, context: CallbackContext):
+async def mostra_offerte_categoria(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Mostra le offerte per una categoria specifica"""
     query = update.callback_query
+    await query.answer()
     categoria = query.data
-    query.answer()
     
     if categoria not in OFFERTE:
-        query.message.reply_text("⚠️ Categoria non disponibile")
+        await query.message.reply_text("⚠️ Categoria non disponibile")
         return
     
     for offerta in OFFERTE[categoria]:
         try:
-            context.bot.send_photo(
+            await context.bot.send_photo(
                 chat_id=query.message.chat.id,
                 photo=offerta["immagine"],
                 caption=f"🏷️ *{offerta['nome']}*\n💵 {offerta['prezzo']} (era {offerta['prezzo_originale']})\n🔗 [Acquista]({offerta['url']})",
                 parse_mode="Markdown"
             )
-            time.sleep(1)
+            await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Errore nell'invio dell'offerta: {str(e)}")
     
     # Aggiungiamo il tasto TORNA AL MENU dopo aver mostrato tutte le offerte
     tastiera = [[InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]]
-    context.bot.send_message(
+    await context.bot.send_message(
         chat_id=query.message.chat.id,
         text="✅ Ecco tutte le offerte disponibili per questa categoria!",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
 
-def mostra_menu_principale(update: Update, context: CallbackContext):
+async def mostra_menu_principale(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Mostra il menu principale"""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     tastiera = [
         [InlineKeyboardButton("📦 Offerte Speciali", callback_data="offerte_speciali")],
         [InlineKeyboardButton("🛍️ Categorie Prodotti", callback_data="scegli_categoria")]
     ]
-    query.edit_message_text(
+    await query.edit_message_text(
         "🔍 *Menu Principale*",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
 
-def mostra_menu_offerte_speciali(update: Update, context: CallbackContext):
+async def mostra_menu_offerte_speciali(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Mostra le offerte speciali"""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     
     if len(OFFERTE_SPECIALI) < 2:
-        query.message.reply_text("⚠️ Offerte speciali non disponibili")
+        await query.message.reply_text("⚠️ Offerte speciali non disponibili")
         return
     
     for offerta in OFFERTE_SPECIALI[:2]:
         try:
-            context.bot.send_photo(
+            await context.bot.send_photo(
                 chat_id=query.message.chat.id,
                 photo=offerta["immagine"],
                 caption=f"🌟 *{offerta['nome']}*\n{offerta['descrizione']}\n🔗 [Vai all'offerta]({offerta['url']})",
                 parse_mode="Markdown"
             )
-            time.sleep(1)
+            await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Errore nell'invio dell'offerta speciale: {str(e)}")
     
@@ -206,7 +215,7 @@ def mostra_menu_offerte_speciali(update: Update, context: CallbackContext):
         [InlineKeyboardButton(OFFERTE_SPECIALI[1]["nome"], url=OFFERTE_SPECIALI[1]["url"])],
         [InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]
     ]
-    query.message.reply_text(
+    await query.message.reply_text(
         "💎 *OFFERTE SPECIALI*",
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
@@ -214,19 +223,19 @@ def mostra_menu_offerte_speciali(update: Update, context: CallbackContext):
 
 def main():
     """Avvia il bot"""
-    updater = Updater(TOKEN)
-    dispatcher = updater.dispatcher
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, invia_messaggio_benvenuto))
-    dispatcher.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-    dispatcher.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
-    dispatcher.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
-    dispatcher.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
-    dispatcher.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
+    # Aggiungi gli handler
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+    application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
+    application.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
 
     print("🤖 Bot avviato correttamente. Premi CTRL+C per fermarlo.")
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
+    import asyncio
     main()
