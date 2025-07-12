@@ -155,7 +155,7 @@ def mostra_offerte_categoria(update: Update, context: CallbackContext):
             )
             time.sleep(1)
         except Exception as e:
-            logger.error(f"Errore: {str(e)}")
+            logger.error(f"Errore nell'invio dell'offerta: {str(e)}")
     
     # Aggiungiamo il tasto TORNA AL MENU dopo aver mostrato tutte le offerte
     tastiera = [[InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]]
@@ -199,7 +199,7 @@ def mostra_menu_offerte_speciali(update: Update, context: CallbackContext):
             )
             time.sleep(1)
         except Exception as e:
-            logger.error(f"Errore: {str(e)}")
+            logger.error(f"Errore nell'invio dell'offerta speciale: {str(e)}")
     
     tastiera = [
         [InlineKeyboardButton(OFFERTE_SPECIALI[0]["nome"], url=OFFERTE_SPECIALI[0]["url"])],
