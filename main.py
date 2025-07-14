@@ -16,8 +16,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.StreamHandler(),  # Output sulla console
-        logging.FileHandler('bot.log', mode='a', encoding='utf-8')  # Log su file
+        logging.StreamHandler(),
+        logging.FileHandler('bot.log', mode='a', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ OFFERTE_SPECIALI = [
 ]
 
 async def invia_messaggio_benvenuto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gestisce completamente il messaggio iniziale"""
+    """Gestisce completamente il messaggio iniziale di benvenuto"""
     tastiera_benvenuto = [
         [InlineKeyboardButton("🚀 Avvia Bot", callback_data="avvia_bot")]
     ]
@@ -121,7 +121,7 @@ async def invia_messaggio_benvenuto(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def gestisci_avvio_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gestisce l'avvio del bot"""
+    """Gestisce completamente l'avvio del bot dopo la pressione del pulsante"""
     query = update.callback_query
     await query.answer()
     tastiera_principale = [
@@ -135,7 +135,7 @@ async def gestisci_avvio_bot(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 async def mostra_menu_categorie(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostra il menu delle categorie"""
+    """Mostra completamente il menu delle categorie disponibili"""
     query = update.callback_query
     await query.answer()
     tastiera_categorie = [
@@ -152,7 +152,7 @@ async def mostra_menu_categorie(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 async def mostra_offerte_categoria(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostra le offerte per una categoria specifica"""
+    """Mostra completamente le offerte per la categoria selezionata"""
     query = update.callback_query
     await query.answer()
     categoria_selezionata = query.data
@@ -182,7 +182,7 @@ async def mostra_offerte_categoria(update: Update, context: ContextTypes.DEFAULT
     )
 
 async def mostra_menu_principale(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostra il menu principale"""
+    """Mostra completamente il menu principale"""
     query = update.callback_query
     await query.answer()
     tastiera_principale = [
@@ -196,7 +196,7 @@ async def mostra_menu_principale(update: Update, context: ContextTypes.DEFAULT_T
     )
 
 async def mostra_menu_offerte_speciali(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mostra le offerte speciali"""
+    """Mostra completamente le offerte speciali"""
     query = update.callback_query
     await query.answer()
     
@@ -228,60 +228,51 @@ async def mostra_menu_offerte_speciali(update: Update, context: ContextTypes.DEF
     )
 
 async def mantenimento_attivita():
-    """Funzione dedicata a mantenere attivo il worker su Render"""
+    """Mantiene completamente attivo il worker su Render con ping regolari"""
     global bot_is_running
     while bot_is_running:
         logger.info("Stato: Bot attivo - Invio segnale di attività a Render")
-        await asyncio.sleep(25)  # Intervallo ottimale per Render
+        await asyncio.sleep(25)
 
 async def arresto_controllato(applicazione):
-    """Procedure complete di spegnimento"""
+    """Esegue completamente le procedure di spegnimento controllato"""
     global bot_is_running
     bot_is_running = False
-    
+    await applicazione.stop()
+    await applicazione.updater.stop()
+    logger.info("✅ Arresto completato correttamente")
+
+async def esegui_application():
+    """Funzione principale async per eseguire completamente l'applicazione"""
     try:
-        await asyncio.wait_for(applicazione.stop(), timeout=10.0)
-        await asyncio.wait_for(applicazione.updater.stop(), timeout=5.0)
-    except asyncio.TimeoutError:
-        logger.warning("Timeout durante l'arresto")
-    
-    logger.info("✅ Arresto completato")
+        applicazione = ApplicationBuilder().token(TOKEN).build()
 
-def avvia_application():
-    """Funzione principale con gestione completa degli errori"""
-    try:
-        # Inizializzazione completa dell'applicazione
-        application = ApplicationBuilder() \
-            .token(TOKEN) \
-            .post_init(lambda _: logger.info("Inizializzazione completata")) \
-            .build()
+        # Registrazione completa di tutti gli handler
+        applicazione.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
+        applicazione.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+        applicazione.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+        applicazione.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
+        applicazione.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
+        applicazione.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
+        applicazione.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
 
-        # Registrazione di tutti gli handler
-        application.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
-        application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-        application.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
-        application.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
-        application.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
-        application.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
-
-        # Configurazione event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Avvio task paralleli
-        task_bot = loop.create_task(application.run_polling())
-        task_mantenimento = loop.create_task(mantenimento_attivita())
-
-        logger.info("🟢 Bot completamente operativo")
-        loop.run_forever()
+        # Avvio completamente parallelo dei task
+        async with applicazione:
+            await applicazione.start()
+            await asyncio.gather(
+                applicazione.updater.start_polling(),
+                mantenimento_attivita()
+            )
+            await applicazione.stop()
 
     except Exception as errore_critico:
         logger.critical(f"🔴 Errore irreversibile: {str(errore_critico)}", exc_info=True)
     finally:
-        if 'application' in locals():
-            loop.run_until_complete(arresto_controllato(application))
-        loop.close()
+        logger.info("Pulizia delle risorse completata")
+
+def main():
+    """Punto di ingresso principale completamente gestito"""
+    asyncio.run(esegui_application())
 
 if __name__ == '__main__':
-    avvia_application()
+    main()
