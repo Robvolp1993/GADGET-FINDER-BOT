@@ -6,23 +6,24 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
-    filters
+    filters,
+    CommandHandler
 )
 from config import TOKEN
 
-# Configurazione avanzata del logging
+# Configurazione completa del logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.StreamHandler(),  # Log su console
-        logging.FileHandler('bot.log')  # Log su file
+        logging.StreamHandler(),  # Output sulla console
+        logging.FileHandler('bot.log', mode='a', encoding='utf-8')  # Log su file
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Aggiungi questa variabile globale per controllare lo stato del bot
-BOT_RUNNING = True
+# Variabile globale per controllo dello stato
+bot_is_running = True
 
 # Database completo delle offerte organizzate per categorie
 OFFERTE = {
@@ -109,11 +110,13 @@ OFFERTE_SPECIALI = [
 ]
 
 async def invia_messaggio_benvenuto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gestisce il messaggio di benvenuto"""
-    tastiera = [[InlineKeyboardButton("🚀 Avvia Bot", callback_data="avvia_bot")]]
+    """Gestisce completamente il messaggio iniziale"""
+    tastiera_benvenuto = [
+        [InlineKeyboardButton("🚀 Avvia Bot", callback_data="avvia_bot")]
+    ]
     await update.message.reply_text(
-        "🛍️ *Benvenuto in Gadget Finder Bot!* 🛍️\nScopri le migliori offerte Amazon!",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        text="🛍️ *Benvenuto in Gadget Finder Bot!* 🛍️\nScopri le migliori offerte Amazon!",
+        reply_markup=InlineKeyboardMarkup(tastiera_benvenuto),
         parse_mode="Markdown"
     )
 
@@ -224,46 +227,78 @@ async def mostra_menu_offerte_speciali(update: Update, context: ContextTypes.DEF
         reply_markup=InlineKeyboardMarkup(tastiera),
         parse_mode="Markdown"
     )
+async def mantenimento_attivita():
+    """Funzione dedicata a mantenere attivo il worker su Render"""
+    global bot_is_running
+    while bot_is_running:
+        logger.info("Stato: Bot attivo - Invio segnale di attività a Render")
+        await asyncio.sleep(25)  # Intervallo ottimale per Render
 
-async def keep_alive():
-    """Funzione che mantiene attivo il worker su Render"""
-    while BOT_RUNNING:
-        logger.info("🤖 Bot attivo - Ping Render")
-        await asyncio.sleep(30)  # Ping ogni 30 secondi
-
-async def shutdown(application):
-    """Pulizia prima dello spegnimento"""
-    global BOT_RUNNING
-    BOT_RUNNING = False
-    await application.stop()
-    await application.updater.stop()
-    logger.info("🔴 Bot spento correttamente")
-
-def main():
+async def arresto_controllato(applicazione):
+    """Procedure complete di spegnimento"""
+    global bot_is_running
+    bot_is_running = False
+    
+    # Chiusura con timeout
     try:
-        # Inizializzazione applicazione
-        application = ApplicationBuilder().token(TOKEN).build()
-        
-        # Aggiunta handler (come nel tuo codice esistente)
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
-        application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-        # [Aggiungi tutti gli altri handler...]
+        await asyncio.wait_for(applicazione.stop(), timeout=10.0)
+        await asyncio.wait_for(applicazione.updater.stop(), timeout=5.0)
+    except asyncio.TimeoutError:
+        logger.warning("Timeout durante l'arresto")
+    
+    logger.info("✅ Arresto completato")
 
-        # Avvio bot con gestione degli errori
-        loop = asyncio.get_event_loop()
+def esegui_bot():
+    """Funzione principale con gestione completa degli errori"""
+    try:
+        # Inizializzazione completa
+        applicazione = ApplicationBuilder() \
+            .token(TOKEN) \
+            .post_init(lambda _: logger.info("Inizializzazione completata")) \
+            .build()
+
+        # Registrazione completa degli handler
+        applicazione.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
+        applicazione.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+        applicazione.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+	applicazione.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
+        applicazione.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+        applicazione.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+def main():
+  # Avvio parallelo
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
-        # Task paralleli: bot + keep-alive
-        bot_task = application.run_polling()
-        keep_alive_task = loop.create_task(keep_alive())
-        
-        logger.info("🤖 Bot avviato correttamente su Render")
+        task_bot = loop.create_task(applicazione.run_polling())
+        task_mantenimento = loop.create_task(mantenimento_attivita())
+
+        logger.info("🟢 Bot completamente operativo")
         loop.run_forever()
 
-    except Exception as e:
-        logger.error(f"🚨 Errore critico: {str(e)}", exc_info=True)
+    except Exception as errore:
+        logger.critical(f"🔴 Errore irreversibile: {str(errore)}", exc_info=True)
     finally:
-        loop.run_until_complete(shutdown(application))
+        if 'applicazione' in locals():
+            loop.run_until_complete(arresto_controllato(applicazione))
         loop.close()
 
 if __name__ == '__main__':
+    # Avvio con controllo completo
+    esegui_bot()
+    """Avvia il bot"""
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    # Aggiungi gli handler
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+    application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
+    application.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
+    application.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
+
+    print("🤖 Bot avviato correttamente. Premi CTRL+C per fermarlo.")
+    application.run_polling()
+
+if __name__ == '__main__':
+    import asyncio
     main()
