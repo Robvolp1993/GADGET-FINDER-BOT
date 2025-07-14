@@ -1,8 +1,11 @@
 services:
   - type: worker
-    name: telegram-bot
+    name: telegram-bot-worker
     env: python
     buildCommand: |
+      python -m pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: python main.py
-    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
