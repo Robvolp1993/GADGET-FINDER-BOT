@@ -124,13 +124,13 @@ async def gestisci_avvio_bot(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Gestisce l'avvio del bot"""
     query = update.callback_query
     await query.answer()
-    tastiera = [
+    tastiera_principale = [
         [InlineKeyboardButton("📦 Offerte Speciali", callback_data="offerte_speciali")],
         [InlineKeyboardButton("🛍️ Categorie Prodotti", callback_data="scegli_categoria")]
     ]
     await query.edit_message_text(
-        "🔍 *Cosa vuoi fare?*",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        text="🔍 *Cosa vuoi fare?*",
+        reply_markup=InlineKeyboardMarkup(tastiera_principale),
         parse_mode="Markdown"
     )
 
@@ -138,7 +138,7 @@ async def mostra_menu_categorie(update: Update, context: ContextTypes.DEFAULT_TY
     """Mostra il menu delle categorie"""
     query = update.callback_query
     await query.answer()
-    tastiera = [
+    tastiera_categorie = [
         [InlineKeyboardButton("📱 Elettronica", callback_data="elettronica")],
         [InlineKeyboardButton("💻 Informatica", callback_data="informatica")],
         [InlineKeyboardButton("🏠 Casa", callback_data="casa")],
@@ -146,8 +146,8 @@ async def mostra_menu_categorie(update: Update, context: ContextTypes.DEFAULT_TY
         [InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]
     ]
     await query.edit_message_text(
-        "🛒 *Seleziona una categoria:*",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        text="🛒 *Seleziona una categoria:*",
+        reply_markup=InlineKeyboardMarkup(tastiera_categorie),
         parse_mode="Markdown"
     )
 
@@ -155,13 +155,13 @@ async def mostra_offerte_categoria(update: Update, context: ContextTypes.DEFAULT
     """Mostra le offerte per una categoria specifica"""
     query = update.callback_query
     await query.answer()
-    categoria = query.data
+    categoria_selezionata = query.data
     
-    if categoria not in OFFERTE:
+    if categoria_selezionata not in OFFERTE:
         await query.message.reply_text("⚠️ Categoria non disponibile")
         return
     
-    for offerta in OFFERTE[categoria]:
+    for offerta in OFFERTE[categoria_selezionata]:
         try:
             await context.bot.send_photo(
                 chat_id=query.message.chat.id,
@@ -170,15 +170,14 @@ async def mostra_offerte_categoria(update: Update, context: ContextTypes.DEFAULT
                 parse_mode="Markdown"
             )
             await asyncio.sleep(1)
-        except Exception as e:
-            logger.error(f"Errore nell'invio dell'offerta: {str(e)}")
+        except Exception as errore:
+            logger.error(f"Errore nell'invio dell'offerta: {str(errore)}")
     
-    # Aggiungiamo il tasto TORNA AL MENU dopo aver mostrato tutte le offerte
-    tastiera = [[InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]]
+    tastiera_torna_indietro = [[InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]]
     await context.bot.send_message(
         chat_id=query.message.chat.id,
         text="✅ Ecco tutte le offerte disponibili per questa categoria!",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        reply_markup=InlineKeyboardMarkup(tastiera_torna_indietro),
         parse_mode="Markdown"
     )
 
@@ -186,13 +185,13 @@ async def mostra_menu_principale(update: Update, context: ContextTypes.DEFAULT_T
     """Mostra il menu principale"""
     query = update.callback_query
     await query.answer()
-    tastiera = [
+    tastiera_principale = [
         [InlineKeyboardButton("📦 Offerte Speciali", callback_data="offerte_speciali")],
         [InlineKeyboardButton("🛍️ Categorie Prodotti", callback_data="scegli_categoria")]
     ]
     await query.edit_message_text(
-        "🔍 *Menu Principale*",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        text="🔍 *Menu Principale*",
+        reply_markup=InlineKeyboardMarkup(tastiera_principale),
         parse_mode="Markdown"
     )
 
@@ -214,19 +213,20 @@ async def mostra_menu_offerte_speciali(update: Update, context: ContextTypes.DEF
                 parse_mode="Markdown"
             )
             await asyncio.sleep(1)
-        except Exception as e:
-            logger.error(f"Errore nell'invio dell'offerta speciale: {str(e)}")
+        except Exception as errore:
+            logger.error(f"Errore nell'invio dell'offerta speciale: {str(errore)}")
     
-    tastiera = [
+    tastiera_offerte_speciali = [
         [InlineKeyboardButton(OFFERTE_SPECIALI[0]["nome"], url=OFFERTE_SPECIALI[0]["url"])],
         [InlineKeyboardButton(OFFERTE_SPECIALI[1]["nome"], url=OFFERTE_SPECIALI[1]["url"])],
         [InlineKeyboardButton("🔙 Torna al Menu", callback_data="torna_al_menu")]
     ]
     await query.message.reply_text(
-        "💎 *OFFERTE SPECIALI*",
-        reply_markup=InlineKeyboardMarkup(tastiera),
+        text="💎 *OFFERTE SPECIALI*",
+        reply_markup=InlineKeyboardMarkup(tastiera_offerte_speciali),
         parse_mode="Markdown"
     )
+
 async def mantenimento_attivita():
     """Funzione dedicata a mantenere attivo il worker su Render"""
     global bot_is_running
@@ -239,7 +239,6 @@ async def arresto_controllato(applicazione):
     global bot_is_running
     bot_is_running = False
     
-    # Chiusura con timeout
     try:
         await asyncio.wait_for(applicazione.stop(), timeout=10.0)
         await asyncio.wait_for(applicazione.updater.stop(), timeout=5.0)
@@ -248,57 +247,41 @@ async def arresto_controllato(applicazione):
     
     logger.info("✅ Arresto completato")
 
-def esegui_bot():
+def avvia_application():
     """Funzione principale con gestione completa degli errori"""
     try:
-        # Inizializzazione completa
-        applicazione = ApplicationBuilder() \
+        # Inizializzazione completa dell'applicazione
+        application = ApplicationBuilder() \
             .token(TOKEN) \
             .post_init(lambda _: logger.info("Inizializzazione completata")) \
             .build()
 
-        # Registrazione completa degli handler
-        applicazione.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
-        applicazione.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
-        applicazione.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-	applicazione.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
-        applicazione.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
-        applicazione.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-def main():
-  # Avvio parallelo
+        # Registrazione di tutti gli handler
+        application.add_handler(CommandHandler("start", invia_messaggio_benvenuto))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
+        application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
+        application.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
+        application.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
+        application.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
+        application.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
+
+        # Configurazione event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        task_bot = loop.create_task(applicazione.run_polling())
+        # Avvio task paralleli
+        task_bot = loop.create_task(application.run_polling())
         task_mantenimento = loop.create_task(mantenimento_attivita())
 
         logger.info("🟢 Bot completamente operativo")
         loop.run_forever()
 
-    except Exception as errore:
-        logger.critical(f"🔴 Errore irreversibile: {str(errore)}", exc_info=True)
+    except Exception as errore_critico:
+        logger.critical(f"🔴 Errore irreversibile: {str(errore_critico)}", exc_info=True)
     finally:
-        if 'applicazione' in locals():
-            loop.run_until_complete(arresto_controllato(applicazione))
+        if 'application' in locals():
+            loop.run_until_complete(arresto_controllato(application))
         loop.close()
 
 if __name__ == '__main__':
-    # Avvio con controllo completo
-    esegui_bot()
-    """Avvia il bot"""
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    # Aggiungi gli handler
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invia_messaggio_benvenuto))
-    application.add_handler(CallbackQueryHandler(gestisci_avvio_bot, pattern="^avvia_bot$"))
-    application.add_handler(CallbackQueryHandler(mostra_menu_offerte_speciali, pattern="^offerte_speciali$"))
-    application.add_handler(CallbackQueryHandler(mostra_menu_categorie, pattern="^scegli_categoria$"))
-    application.add_handler(CallbackQueryHandler(mostra_offerte_categoria, pattern="^(elettronica|informatica|casa|giochi)$"))
-    application.add_handler(CallbackQueryHandler(mostra_menu_principale, pattern="^torna_al_menu$"))
-
-    print("🤖 Bot avviato correttamente. Premi CTRL+C per fermarlo.")
-    application.run_polling()
-
-if __name__ == '__main__':
-    import asyncio
-    main()
+    avvia_application()
