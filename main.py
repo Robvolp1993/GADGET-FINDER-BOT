@@ -1,7 +1,6 @@
 import logging
 import time
 import asyncio
-import aiohttp  # Aggiunto per gestire le richieste HTTP asincrone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
