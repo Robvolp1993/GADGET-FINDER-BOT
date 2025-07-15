@@ -1,6 +1,6 @@
 services:
   - type: worker
-    name: telegram-bot-worker
+    name: telegram-bot-service
     env: python
     buildCommand: |
       python -m pip install --upgrade pip
